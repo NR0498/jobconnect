@@ -57,7 +57,7 @@ export function HomePage({
               Opportunity explorer
             </p>
             <h2 className="mt-3 text-3xl font-semibold tracking-tight">
-              Live openings segmented by career path
+              Live openings across India, segmented by career path
             </h2>
           </div>
           {opportunitiesQuery.data?.ai ? (
@@ -98,11 +98,18 @@ export function HomePage({
           <Card>
             <CardTitle>We could not load openings right now.</CardTitle>
             <CardDescription className="mt-3">
-              The app still keeps a fallback seed dataset, but the live sources may be rate
-              limited or temporarily unavailable.
+              The platform keeps an India fallback dataset, but the live sync may be
+              temporarily unavailable.
             </CardDescription>
           </Card>
         ) : null}
+
+        <Card className="border-primary/15 bg-primary/5">
+          <CardDescription>
+            India opportunities are synced into the database automatically. Apply links
+            open the source listing so you can continue the application on the external page.
+          </CardDescription>
+        </Card>
 
         {opportunitiesQuery.data?.opportunities.length ? (
           <div className="grid gap-4 lg:grid-cols-2">

@@ -78,7 +78,7 @@ export function OpportunityCard({ opportunity }: { opportunity: Opportunity }) {
 
         <a href={opportunity.sourceUrl} target="_blank" rel="noreferrer">
           <Button size="sm">
-            View opening
+            Apply on source page
             <ArrowUpRight className="h-4 w-4" />
           </Button>
         </a>

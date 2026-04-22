@@ -1,207 +1,245 @@
-# JobConnect - Professional Job Board Platform
+# JobConnect
 
-A comprehensive job listing platform inspired by Glassdoor, built with modern web technologies and designed specifically for Indian students and professionals seeking opportunities both domestically and internationally.
+JobConnect is a full-stack India-focused opportunities platform for internships, full-time roles, startup openings, and research positions. It combines a React frontend, an Express API, Neon Postgres storage, and automated sync jobs that aggregate live listings from free public job sources.
 
-## 🚀 Features
+## Features
 
-### Core Functionality
-- **User Authentication**: Secure login/logout using Replit Auth with OpenID Connect
-- **Job Search & Filtering**: Advanced search with filters for job type, experience level, location, salary, and more
-- **Company Profiles**: Browse verified companies with detailed information and job listings
-- **Research Opportunities**: Dedicated section for academic and industry research positions
-- **Study Abroad Programs**: International education opportunities with eligibility information for Indian students
-- **Job Applications**: Apply to jobs and track application status
-- **Saved Jobs**: Bookmark interesting positions for later review
-- **Job Posting**: Authenticated users can post new job openings
+- India-first job discovery across internships, full-time roles, startup jobs, and research opportunities
+- User registration and login with database-backed sessions
+- Live multi-source aggregation from The Muse, Remotive, and Jobicy
+- Automated syncing and persistence of opportunities into PostgreSQL
+- Startup dashboard with startup scoring and segmented opportunity views
+- Filters for search, location, track, and startup-only roles
+- Direct outbound apply links to the source listing page
+- Optional Ollama-assisted query expansion for richer search
+- Vercel-ready frontend, API routing, and scheduled cron sync
 
-### Design & User Experience
-- **Professional UI**: Glassdoor-inspired design with modern, clean aesthetics
-- **Dark/Light Theme**: Toggle between themes with smooth transitions
-- **Responsive Design**: Optimized for desktop, tablet, and mobile devices
-- **Purple & White Theme**: Professional color scheme with purple gradients
-- **Real-time Updates**: Live job listings and application tracking
-- **International Focus**: Special features for visa sponsorship and work permits
-
-## 🛠 Tech Stack
+## Tech Stack
 
 ### Frontend
-- **React 18** with TypeScript for type-safe development
-- **Vite** for fast development and optimized builds
-- **Wouter** for lightweight client-side routing
-- **TanStack Query** (React Query) for server state management
-- **Tailwind CSS** for styling with custom purple theme
-- **Shadcn/ui** components built on Radix UI primitives
-- **React Hook Form** with Zod validation for forms
-- **Lucide React** for consistent iconography
+
+- React 18
+- TypeScript
+- Vite
+- Wouter
+- TanStack Query
+- Tailwind CSS
+- Shadcn-style UI primitives
 
 ### Backend
-- **Node.js** with TypeScript
-- **Express.js** for REST API development
-- **PostgreSQL** database with Neon serverless hosting
-- **Drizzle ORM** for type-safe database operations
-- **Replit Auth** with OpenID Connect for authentication
-- **Express Sessions** with PostgreSQL store for session management
 
-### Database Schema
-- **Users**: Profile information from authentication
-- **Companies**: Company profiles and details
-- **Jobs**: Job listings with comprehensive filtering options
-- **Applications**: Job application tracking
-- **Saved Jobs**: User bookmarking system
-- **Study Programs**: International education opportunities
-- **Sessions**: Secure session storage
+- Node.js
+- Express
+- TypeScript
+- Drizzle ORM
+- Neon Postgres
 
-## 📁 Project Structure
+### Data Sources
 
-```
-├── client/                 # React frontend application
-│   ├── src/
-│   │   ├── components/     # Reusable UI components
-│   │   ├── hooks/          # Custom React hooks
-│   │   ├── lib/            # Utility functions and configurations
-│   │   ├── pages/          # Application pages/routes
-│   │   └── ...
-├── server/                 # Express backend API
-│   ├── db.ts              # Database configuration
-│   ├── routes.ts          # API route definitions
-│   ├── storage.ts         # Database operations
-│   ├── replitAuth.ts      # Authentication setup
-│   └── ...
-├── shared/                 # Shared TypeScript types and schemas
-│   └── schema.ts          # Drizzle database schema
-└── ...
+- The Muse public jobs API
+- Remotive public jobs API
+- Jobicy RSS feed
+- Optional Adzuna integration
+
+## Project Structure
+
+```text
+.
+├── api/                  # Vercel serverless entry
+├── client/               # React frontend
+│   ├── index.html
+│   └── src/
+│       ├── components/
+│       ├── hooks/
+│       ├── lib/
+│       ├── pages/
+│       └── types/
+├── server/               # Express app, auth, sync, DB logic
+├── shared/               # Shared schema and types
+├── drizzle.config.ts     # Drizzle configuration
+├── vercel.json           # Vercel routing and cron config
+└── package.json
 ```
 
-## 🚦 Getting Started
+## Environment Variables
 
-### Prerequisites
-- Node.js 20+
-- PostgreSQL database (provided by Replit)
-- Replit account for authentication
+Create a `.env` file in the project root.
 
-### Installation
+```env
+PORT=3000
+NODE_ENV=development
+DATABASE_URL=your_neon_database_url
+CRON_SECRET=replace_with_a_long_random_secret
 
-1. **Clone and Setup**
-   ```bash
-   git clone <repository-url>
-   cd jobconnect
-   npm install
-   ```
+# Optional source-specific credentials
+THE_MUSE_API_KEY=
+ADZUNA_APP_ID=
+ADZUNA_APP_KEY=
 
-2. **Environment Variables**
-   The following environment variables are automatically provided in Replit:
-   - `DATABASE_URL` - PostgreSQL connection string
-   - `SESSION_SECRET` - Session encryption key
-   - `REPL_ID` - Replit application identifier
-   - `REPLIT_DOMAINS` - Allowed domains for authentication
+# Optional Ollama integration
+OLLAMA_BASE_URL=http://127.0.0.1:11434
+OLLAMA_MODEL=llama3.1
+```
 
-3. **Database Setup**
-   ```bash
-   # Generate and push database schema
-   npx drizzle-kit generate
-   npx drizzle-kit push
-   ```
+Notes:
 
-4. **Start Development**
-   ```bash
-   npm run dev
-   ```
+- `DATABASE_URL` is required for persisted users, sessions, jobs, and sync logs.
+- `CRON_SECRET` protects the sync endpoint.
+- `THE_MUSE_API_KEY` is optional.
+- `ADZUNA_APP_ID` and `ADZUNA_APP_KEY` are optional.
 
-The application will be available at the provided Replit URL.
+## Local Development
 
-## 🎯 Key Features for Indian Students
+### 1. Install dependencies
 
-### International Opportunities
-- **Visa Sponsorship**: Jobs offering visa sponsorship clearly marked
-- **Study Abroad**: Programs with eligibility criteria for Indian students
-- **Work Permits**: Information about post-study work opportunities
-- **Scholarship Details**: Available funding options and scholarships
+```bash
+npm install
+```
 
-### Career Guidance
-- **Experience Levels**: Clear categorization from entry to senior positions
-- **Salary Information**: Transparent salary ranges in INR and international currencies
-- **Company Insights**: Detailed company profiles with industry information
-- **Research Positions**: Academic and industry research opportunities
+### 2. Configure Neon Postgres
 
-## 📊 Sample Data
+Add your Neon connection string to `.env` as `DATABASE_URL`.
 
-The application comes pre-loaded with sample data including:
-- 6 verified companies across different industries
-- 8 diverse job listings (full-time, internship, research)
-- 6 international study programs from top universities
-- Various salary ranges and experience levels
+### 3. Push the schema
 
-## 🔐 Authentication & Security
+```bash
+npx drizzle-kit push
+```
 
-- **Replit Auth Integration**: Secure OpenID Connect authentication
-- **Session Management**: PostgreSQL-backed sessions with proper expiration
-- **Route Protection**: Authentication required for sensitive operations
-- **Data Validation**: Comprehensive input validation using Zod schemas
+This creates the core tables:
 
-## 🎨 Design Philosophy
+- `users`
+- `auth_sessions`
+- `jobs`
+- `sync_runs`
 
-- **Professional**: Clean, modern interface suitable for career platforms
-- **Accessible**: Proper contrast ratios and semantic HTML
-- **Responsive**: Mobile-first design with desktop enhancements
-- **Consistent**: Uniform spacing, typography, and color usage
-- **International**: Designed for global opportunities and diverse users
+### 4. Start the app
 
-## 🚀 Deployment
+```bash
+npm run dev
+```
 
-### Replit Deployment (Recommended)
-1. The application is configured for Replit Deployments
-2. Click the "Deploy" button in your Replit workspace
-3. The app will be automatically built and deployed
-4. Access your live application at the provided `.replit.app` domain
+Open the app at the local URL shown in the terminal.
 
-### Manual Deployment
-For other platforms, ensure:
-- Node.js 20+ runtime
-- PostgreSQL database
-- Required environment variables
-- Build the frontend: `npm run build`
-- Start the server: `npm start`
+### 5. Trigger an initial sync
 
-## 📝 API Documentation
+Replace the token with your `CRON_SECRET` value:
 
-### Authentication Endpoints
-- `GET /api/auth/user` - Get current user information
-- `GET /api/login` - Initiate login flow
-- `GET /api/logout` - Logout current user
+```powershell
+Invoke-WebRequest -Uri "http://localhost:3000/api/cron/sync-opportunities" -Headers @{ Authorization = "Bearer YOUR_CRON_SECRET" }
+```
 
-### Job Endpoints
-- `GET /api/jobs` - List jobs with optional filters
-- `GET /api/jobs/search` - Search jobs by query and location
-- `GET /api/jobs/:id` - Get specific job details
-- `POST /api/jobs` - Create new job (authenticated)
+After syncing, refresh the app and verify jobs appear.
 
-### Application Endpoints
-- `GET /api/applications` - User's job applications
-- `POST /api/applications` - Apply to a job
+## Authentication
 
-### Study Program Endpoints
-- `GET /api/study-programs` - List study abroad programs
-- `GET /api/study-programs/:id` - Get program details
+JobConnect uses a custom email/password auth flow:
 
-## 🤝 Contributing
+- User accounts are stored in `users`
+- Passwords are hashed with `bcryptjs`
+- Session tokens are stored in `auth_sessions`
+- Session cookies are HTTP-only
 
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature-name`
-3. Commit changes: `git commit -am 'Add feature'`
-4. Push to branch: `git push origin feature-name`
-5. Submit a pull request
+Endpoints:
 
-## 📄 License
+- `GET /api/auth/me`
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `POST /api/auth/logout`
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+## Opportunity Sync
 
-## 🙋‍♂️ Support
+The sync layer:
 
-For support and questions:
-- Create an issue in the repository
-- Contact the development team
-- Check the documentation for common solutions
+- fetches data from The Muse, Remotive, and Jobicy
+- normalizes jobs into a shared schema
+- deduplicates repeated listings
+- upserts active listings into Postgres
+- marks stale records inactive
+- writes sync metadata to `sync_runs`
 
----
+Endpoints:
 
-**Built with ❤️ for the global Indian student and professional community**
+- `GET /api/opportunities`
+- `GET /api/dashboard`
+- `GET /api/health`
+- `GET /api/cron/sync-opportunities`
+
+## Source Setup
+
+### Remotive
+
+- No API key required
+- Docs: https://remotive.com/remote-jobs/api
+
+### The Muse
+
+- Optional API key
+- Docs: https://www.themuse.com/developers/api/v2
+- Public jobs endpoint: `https://www.themuse.com/api/public/jobs`
+
+### Jobicy
+
+- No API key required
+- RSS feed docs: https://jobicy.com/jobs-rss-feed
+
+### Adzuna
+
+- Optional
+- Docs: https://developer.adzuna.com/overview
+
+## Deployment on Vercel
+
+The repository is already prepared for Vercel with:
+
+- `api/index.ts` for API handling
+- `vercel.json` rewrites for SPA routing and API routing
+- a cron job that calls `/api/cron/sync-opportunities`
+
+### Deploy Steps
+
+1. Push the project to GitHub
+2. Import the repo into Vercel
+3. Add environment variables in Vercel:
+   - `DATABASE_URL`
+   - `CRON_SECRET`
+   - `THE_MUSE_API_KEY` optional
+   - `ADZUNA_APP_ID` optional
+   - `ADZUNA_APP_KEY` optional
+   - `OLLAMA_BASE_URL` optional
+   - `OLLAMA_MODEL` optional
+4. Deploy
+5. Trigger the sync endpoint once manually after the first deployment
+
+## Useful Commands
+
+```bash
+npm install
+npm run dev
+npm run check
+npm run build
+npx drizzle-kit push
+```
+
+## Current Status
+
+Implemented:
+
+- India-focused opportunities UI
+- Login/register flow
+- Neon-backed persistence
+- Automated sync pipeline
+- Multi-source aggregation
+- Startup dashboard
+- Vercel deployment config
+
+Planned improvements:
+
+- saved jobs
+- source-quality filtering for direct employer ATS links only
+- admin sync controls
+- richer analytics per source
+
+## License
+
+This project is licensed under the MIT License.

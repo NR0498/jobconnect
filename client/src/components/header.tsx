@@ -1,5 +1,7 @@
-import { BriefcaseBusiness, Building2, FlaskConical, GraduationCap } from "lucide-react";
+import { BriefcaseBusiness, Building2, FlaskConical, GraduationCap, LogIn, LogOut, MapPinned } from "lucide-react";
 import { Link, useLocation } from "wouter";
+import { useAuth, useLogout } from "@/hooks/use-auth";
+import { Button } from "./ui/button";
 import { ThemeToggle } from "./theme-toggle";
 
 const navItems = [
@@ -11,6 +13,8 @@ const navItems = [
 
 export function Header() {
   const [location] = useLocation();
+  const authQuery = useAuth();
+  const logoutMutation = useLogout();
 
   return (
     <header className="sticky top-0 z-20 border-b border-white/10 bg-background/70 backdrop-blur-xl">
@@ -22,7 +26,7 @@ export function Header() {
           <div>
             <p className="text-lg font-semibold tracking-tight">JobConnect</p>
             <p className="text-xs text-muted-foreground">
-              Live openings for students and builders
+              India-first opportunities board
             </p>
           </div>
         </Link>
@@ -44,7 +48,36 @@ export function Header() {
           ))}
         </nav>
 
-        <ThemeToggle />
+        <div className="flex items-center gap-3">
+          {authQuery.data?.user ? (
+            <>
+              <div className="hidden rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm md:flex md:items-center md:gap-2">
+                <MapPinned className="h-4 w-4 text-primary" />
+                <span>{authQuery.data.user.name}</span>
+                {authQuery.data.user.city ? (
+                  <span className="text-muted-foreground">· {authQuery.data.user.city}</span>
+                ) : null}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => logoutMutation.mutate()}
+                disabled={logoutMutation.isPending}
+              >
+                <LogOut className="h-4 w-4" />
+                Logout
+              </Button>
+            </>
+          ) : (
+            <Link href="/login">
+              <Button variant="outline" size="sm">
+                <LogIn className="h-4 w-4" />
+                Login
+              </Button>
+            </Link>
+          )}
+          <ThemeToggle />
+        </div>
       </div>
     </header>
   );

@@ -1,6 +1,7 @@
 import { Route, Switch } from "wouter";
 import { Header } from "@/components/header";
 import { HomePage } from "@/pages/home-page";
+import { LoginPage } from "@/pages/login-page";
 
 export function App() {
   return (
@@ -20,6 +21,9 @@ export function App() {
           </Route>
           <Route path="/research">
             <HomePage initialTrack="research" />
+          </Route>
+          <Route path="/login">
+            <LoginPage />
           </Route>
         </Switch>
       </main>
