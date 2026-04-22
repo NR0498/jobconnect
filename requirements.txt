@@ -1,0 +1,7 @@
+# This repository does not use Python for its application runtime.
+# The app runs on Node.js + TypeScript with Vite and Express.
+#
+# This file exists only to make the environment expectations explicit for
+# platforms or editors that look for a requirements.txt by default.
+#
+# Python packages required: none

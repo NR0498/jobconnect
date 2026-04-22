@@ -1,0 +1,96 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 248 250 252;
+  --foreground: 15 23 42;
+  --card: 255 255 255;
+  --card-foreground: 15 23 42;
+  --popover: 255 255 255;
+  --popover-foreground: 15 23 42;
+  --primary: 124 58 237;
+  --primary-foreground: 255 255 255;
+  --secondary: 241 245 249;
+  --secondary-foreground: 30 41 59;
+  --muted: 241 245 249;
+  --muted-foreground: 100 116 139;
+  --accent: 237 233 254;
+  --accent-foreground: 76 29 149;
+  --destructive: 220 38 38;
+  --destructive-foreground: 255 255 255;
+  --border: 226 232 240;
+  --input: 226 232 240;
+  --ring: 124 58 237;
+  --chart-1: 124 58 237;
+  --chart-2: 59 130 246;
+  --chart-3: 16 185 129;
+  --chart-4: 249 115 22;
+  --chart-5: 236 72 153;
+  --sidebar-background: 255 255 255;
+  --sidebar-foreground: 15 23 42;
+  --sidebar-primary: 124 58 237;
+  --sidebar-primary-foreground: 255 255 255;
+  --sidebar-accent: 245 243 255;
+  --sidebar-accent-foreground: 76 29 149;
+  --sidebar-border: 226 232 240;
+  --sidebar-ring: 124 58 237;
+  --radius: 1.25rem;
+}
+
+.dark {
+  --background: 2 6 23;
+  --foreground: 241 245 249;
+  --card: 15 23 42;
+  --card-foreground: 241 245 249;
+  --popover: 15 23 42;
+  --popover-foreground: 241 245 249;
+  --primary: 168 85 247;
+  --primary-foreground: 255 255 255;
+  --secondary: 30 41 59;
+  --secondary-foreground: 226 232 240;
+  --muted: 30 41 59;
+  --muted-foreground: 148 163 184;
+  --accent: 59 130 246;
+  --accent-foreground: 255 255 255;
+  --destructive: 239 68 68;
+  --destructive-foreground: 255 255 255;
+  --border: 51 65 85;
+  --input: 51 65 85;
+  --ring: 168 85 247;
+  --chart-1: 168 85 247;
+  --chart-2: 59 130 246;
+  --chart-3: 34 197 94;
+  --chart-4: 250 204 21;
+  --chart-5: 244 114 182;
+  --sidebar-background: 15 23 42;
+  --sidebar-foreground: 241 245 249;
+  --sidebar-primary: 168 85 247;
+  --sidebar-primary-foreground: 255 255 255;
+  --sidebar-accent: 30 41 59;
+  --sidebar-accent-foreground: 241 245 249;
+  --sidebar-border: 51 65 85;
+  --sidebar-ring: 168 85 247;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: "Segoe UI", "Inter", ui-sans-serif, system-ui, sans-serif;
+    background-image:
+      radial-gradient(circle at top left, rgba(168, 85, 247, 0.08), transparent 30%),
+      radial-gradient(circle at bottom right, rgba(96, 165, 250, 0.08), transparent 25%);
+  }
+
+  a {
+    @apply text-inherit no-underline;
+  }
+}
