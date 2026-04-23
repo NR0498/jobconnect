@@ -3,6 +3,17 @@ import { trackSchema } from "../shared/schema";
 import { getAuthenticatedUser, loginUser, logoutUser, registerUser } from "./auth";
 import { getIndiaOpportunities, syncIndiaOpportunities } from "./indiaJobs";
 
+function hasRealConfigValue(value?: string) {
+  if (!value) return false;
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return false;
+  return !(
+    normalized.startsWith("your_") ||
+    normalized.includes("placeholder") ||
+    normalized === "changeme"
+  );
+}
+
 function getTrack(value: unknown) {
   const parsed = trackSchema.safeParse(value);
   return parsed.success ? parsed.data : undefined;
@@ -14,7 +25,9 @@ export function registerRoutes(app: Express) {
       ok: true,
       now: new Date().toISOString(),
       databaseConfigured: Boolean(process.env.DATABASE_URL),
-      adzunaConfigured: Boolean(process.env.ADZUNA_APP_ID && process.env.ADZUNA_APP_KEY),
+      adzunaConfigured:
+        hasRealConfigValue(process.env.ADZUNA_APP_ID) &&
+        hasRealConfigValue(process.env.ADZUNA_APP_KEY),
       ollamaConfigured: Boolean(
         process.env.OLLAMA_BASE_URL && process.env.OLLAMA_MODEL,
       ),

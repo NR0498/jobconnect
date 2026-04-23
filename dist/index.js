@@ -475,6 +475,12 @@ var JOBICY_KEYWORDS = [
   "noida",
   "delhi"
 ];
+function hasRealConfigValue(value) {
+  if (!value) return false;
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return false;
+  return !(normalized.startsWith("your_") || normalized.includes("placeholder") || normalized === "changeme");
+}
 function stripHtml(input) {
   if (!input) return "";
   return input.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
@@ -707,7 +713,7 @@ function normalizeJobicyOpportunity(job, keyword) {
 async function fetchAdzunaPage(page, what, where) {
   const appId = process.env.ADZUNA_APP_ID;
   const appKey = process.env.ADZUNA_APP_KEY;
-  if (!appId || !appKey) {
+  if (!hasRealConfigValue(appId) || !hasRealConfigValue(appKey)) {
     return [];
   }
   const url = new URL(`https://api.adzuna.com/v1/api/jobs/in/search/${page}`);
@@ -862,9 +868,12 @@ async function syncIndiaOpportunities() {
     )).flat();
     const remotiveResults = (await Promise.all(remotiveQueries.map((query) => fetchRemotiveIndia(query).catch(() => [])))).flat();
     const jobicyResults = (await Promise.all(JOBICY_KEYWORDS.map((keyword) => fetchJobicyFeed(keyword).catch(() => [])))).flat();
-    const adzunaResults = process.env.ADZUNA_APP_ID && process.env.ADZUNA_APP_KEY ? (await Promise.all(
+    const adzunaResults = hasRealConfigValue(process.env.ADZUNA_APP_ID) && hasRealConfigValue(process.env.ADZUNA_APP_KEY) ? (await Promise.all(
       ["software engineer", "internship", "research engineer", "data analyst"].flatMap(
-        (query) => [fetchAdzunaPage(1, query), fetchAdzunaPage(2, query)]
+        (query) => [
+          fetchAdzunaPage(1, query).catch(() => []),
+          fetchAdzunaPage(2, query).catch(() => [])
+        ]
       )
     )).flat() : [];
     const opportunities = dedupeOpportunities([
@@ -1056,6 +1065,12 @@ async function getIndiaOpportunities(query) {
 }
 
 // server/routes.ts
+function hasRealConfigValue2(value) {
+  if (!value) return false;
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return false;
+  return !(normalized.startsWith("your_") || normalized.includes("placeholder") || normalized === "changeme");
+}
 function getTrack(value) {
   const parsed = trackSchema.safeParse(value);
   return parsed.success ? parsed.data : void 0;
@@ -1066,7 +1081,7 @@ function registerRoutes(app) {
       ok: true,
       now: (/* @__PURE__ */ new Date()).toISOString(),
       databaseConfigured: Boolean(process.env.DATABASE_URL),
-      adzunaConfigured: Boolean(process.env.ADZUNA_APP_ID && process.env.ADZUNA_APP_KEY),
+      adzunaConfigured: hasRealConfigValue2(process.env.ADZUNA_APP_ID) && hasRealConfigValue2(process.env.ADZUNA_APP_KEY),
       ollamaConfigured: Boolean(
         process.env.OLLAMA_BASE_URL && process.env.OLLAMA_MODEL
       )

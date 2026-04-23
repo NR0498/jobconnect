@@ -121,6 +121,17 @@ const JOBICY_KEYWORDS = [
   "delhi",
 ];
 
+function hasRealConfigValue(value?: string) {
+  if (!value) return false;
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return false;
+  return !(
+    normalized.startsWith("your_") ||
+    normalized.includes("placeholder") ||
+    normalized === "changeme"
+  );
+}
+
 function stripHtml(input?: string) {
   if (!input) return "";
   return input.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
@@ -404,13 +415,13 @@ async function fetchAdzunaPage(page: number, what: string, where?: string) {
   const appId = process.env.ADZUNA_APP_ID;
   const appKey = process.env.ADZUNA_APP_KEY;
 
-  if (!appId || !appKey) {
+  if (!hasRealConfigValue(appId) || !hasRealConfigValue(appKey)) {
     return [];
   }
 
   const url = new URL(`https://api.adzuna.com/v1/api/jobs/in/search/${page}`);
-  url.searchParams.set("app_id", appId);
-  url.searchParams.set("app_key", appKey);
+  url.searchParams.set("app_id", appId!);
+  url.searchParams.set("app_key", appKey!);
   url.searchParams.set("results_per_page", "20");
   url.searchParams.set("what", what);
   url.searchParams.set("content-type", "application/json");
@@ -613,11 +624,16 @@ export async function syncIndiaOpportunities() {
       await Promise.all(JOBICY_KEYWORDS.map((keyword) => fetchJobicyFeed(keyword).catch(() => [])))
     ).flat();
 
-    const adzunaResults = process.env.ADZUNA_APP_ID && process.env.ADZUNA_APP_KEY
+    const adzunaResults =
+      hasRealConfigValue(process.env.ADZUNA_APP_ID) &&
+      hasRealConfigValue(process.env.ADZUNA_APP_KEY)
       ? (
           await Promise.all(
             ["software engineer", "internship", "research engineer", "data analyst"].flatMap(
-              (query) => [fetchAdzunaPage(1, query), fetchAdzunaPage(2, query)],
+              (query) => [
+                fetchAdzunaPage(1, query).catch(() => []),
+                fetchAdzunaPage(2, query).catch(() => []),
+              ],
             ),
           )
         ).flat()
