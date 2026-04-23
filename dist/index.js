@@ -848,7 +848,7 @@ async function saveSyncRun(status, fetchedCount, insertedCount, notes) {
     });
   }
 }
-async function syncIndiaOpportunities() {
+async function collectLiveIndiaOpportunities() {
   const remotiveQueries = [
     "india",
     "internship india",
@@ -882,6 +882,17 @@ async function syncIndiaOpportunities() {
       ...jobicyResults,
       ...adzunaResults
     ]);
+    return {
+      opportunities,
+      fetchedCount: museResults.length + remotiveResults.length + jobicyResults.length + adzunaResults.length
+    };
+  } catch (error) {
+    throw error;
+  }
+}
+async function syncIndiaOpportunities() {
+  try {
+    const { opportunities, fetchedCount } = await collectLiveIndiaOpportunities();
     if (db && isDatabaseConfigured) {
       for (const opportunity of opportunities) {
         await db.insert(jobs).values({
@@ -952,7 +963,7 @@ async function syncIndiaOpportunities() {
       }
       await saveSyncRun(
         "success",
-        museResults.length + remotiveResults.length + jobicyResults.length + adzunaResults.length,
+        fetchedCount,
         opportunities.length
       );
     } else {
@@ -1043,6 +1054,13 @@ async function getIndiaOpportunities(query) {
     }
   }
   let opportunities = await getStoredOpportunities();
+  if (opportunities.length === 0) {
+    try {
+      const live = await collectLiveIndiaOpportunities();
+      opportunities = live.opportunities;
+    } catch {
+    }
+  }
   const searchTerms = [query.search, ...ai.expansions ?? []].filter(Boolean);
   if (searchTerms.length > 1) {
     opportunities = opportunities.filter(

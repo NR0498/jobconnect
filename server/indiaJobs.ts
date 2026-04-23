@@ -594,7 +594,7 @@ async function saveSyncRun(status: string, fetchedCount: number, insertedCount: 
   }
 }
 
-export async function syncIndiaOpportunities() {
+async function collectLiveIndiaOpportunities() {
   const remotiveQueries = [
     "india",
     "internship india",
@@ -645,6 +645,20 @@ export async function syncIndiaOpportunities() {
       ...jobicyResults,
       ...adzunaResults,
     ]);
+
+    return {
+      opportunities,
+      fetchedCount:
+        museResults.length + remotiveResults.length + jobicyResults.length + adzunaResults.length,
+    };
+  } catch (error) {
+    throw error;
+  }
+}
+
+export async function syncIndiaOpportunities() {
+  try {
+    const { opportunities, fetchedCount } = await collectLiveIndiaOpportunities();
 
     if (db && isDatabaseConfigured) {
       for (const opportunity of opportunities) {
@@ -728,7 +742,7 @@ export async function syncIndiaOpportunities() {
 
       await saveSyncRun(
         "success",
-        museResults.length + remotiveResults.length + jobicyResults.length + adzunaResults.length,
+        fetchedCount,
         opportunities.length,
       );
     } else {
@@ -844,6 +858,15 @@ export async function getIndiaOpportunities(query: FeedQuery) {
   }
 
   let opportunities = await getStoredOpportunities();
+  if (opportunities.length === 0) {
+    try {
+      const live = await collectLiveIndiaOpportunities();
+      opportunities = live.opportunities;
+    } catch {
+      // If live fallback fails too, return the empty state cleanly.
+    }
+  }
+
   const searchTerms = [query.search, ...(ai.expansions ?? [])].filter(Boolean) as string[];
 
   if (searchTerms.length > 1) {

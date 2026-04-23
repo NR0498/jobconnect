@@ -1,5 +1,4 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "vite build",
   "outputDirectory": "dist/public",
   "functions": {
@@ -24,4 +23,3 @@
   }
 ]
 }
-
