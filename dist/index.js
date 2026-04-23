@@ -237,15 +237,17 @@ function getCookieValue(request, cookieName) {
   return null;
 }
 function clearSessionCookie(response) {
+  const sameSite = process.env.NODE_ENV === "production" ? "None" : "Lax";
   response.setHeader(
     "Set-Cookie",
-    `${SESSION_COOKIE_NAME}=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax${process.env.NODE_ENV === "production" ? "; Secure" : ""}`
+    `${SESSION_COOKIE_NAME}=; HttpOnly; Path=/; Max-Age=0; SameSite=${sameSite}${process.env.NODE_ENV === "production" ? "; Secure" : ""}`
   );
 }
 function setSessionCookie(response, token) {
+  const sameSite = process.env.NODE_ENV === "production" ? "None" : "Lax";
   response.setHeader(
     "Set-Cookie",
-    `${SESSION_COOKIE_NAME}=${encodeURIComponent(token)}; HttpOnly; Path=/; Max-Age=${SESSION_TTL_MS / 1e3}; SameSite=Lax${process.env.NODE_ENV === "production" ? "; Secure" : ""}`
+    `${SESSION_COOKIE_NAME}=${encodeURIComponent(token)}; HttpOnly; Path=/; Max-Age=${SESSION_TTL_MS / 1e3}; SameSite=${sameSite}${process.env.NODE_ENV === "production" ? "; Secure" : ""}`
   );
 }
 async function createSession(response, userId) {
@@ -272,10 +274,8 @@ async function registerUser(input, response) {
   const email = parsed.email.trim().toLowerCase();
   const passwordHash = await bcrypt.hash(parsed.password, 10);
   if (db && isDatabaseConfigured) {
-    const existing = await db.query.users.findFirst({
-      where: eq(users.email, email)
-    });
-    if (existing) {
+    const existing = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    if (existing[0]) {
       throw new Error("An account with that email already exists.");
     }
     const user2 = {
@@ -310,9 +310,8 @@ async function loginUser(input, response) {
   const parsed = loginUserSchema.parse(input);
   const email = parsed.email.trim().toLowerCase();
   if (db && isDatabaseConfigured) {
-    const user2 = await db.query.users.findFirst({
-      where: eq(users.email, email)
-    });
+    const matches = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    const user2 = matches[0];
     if (!user2) {
       throw new Error("Invalid email or password.");
     }
@@ -341,15 +340,13 @@ async function getAuthenticatedUser(request) {
   if (!token) return null;
   const tokenHash = hashToken(token);
   if (db && isDatabaseConfigured) {
-    const session2 = await db.query.authSessions.findFirst({
-      where: eq(authSessions.tokenHash, tokenHash)
-    });
+    const sessions = await db.select().from(authSessions).where(eq(authSessions.tokenHash, tokenHash)).limit(1);
+    const session2 = sessions[0];
     if (!session2 || session2.expiresAt < /* @__PURE__ */ new Date()) {
       return null;
     }
-    const user2 = await db.query.users.findFirst({
-      where: eq(users.id, session2.userId)
-    });
+    const usersFound = await db.select().from(users).where(eq(users.id, session2.userId)).limit(1);
+    const user2 = usersFound[0];
     return user2 ? authUserSchema.parse(user2) : null;
   }
   const session = memoryStore.sessions.get(tokenHash);
@@ -890,6 +887,26 @@ async function collectLiveIndiaOpportunities() {
     throw error;
   }
 }
+async function collectFastIndiaFallback() {
+  const museResults = (await Promise.all([
+    fetchTheMusePage(1, "Chennai, India").catch(() => []),
+    fetchTheMusePage(1, "Bengaluru, India").catch(() => []),
+    fetchTheMusePage(1, "Hyderabad, India").catch(() => [])
+  ])).flat();
+  const remotiveResults = (await Promise.all([
+    fetchRemotiveIndia("india").catch(() => []),
+    fetchRemotiveIndia("internship india").catch(() => [])
+  ])).flat();
+  const jobicyResults = (await Promise.all([
+    fetchJobicyFeed("india").catch(() => []),
+    fetchJobicyFeed("bangalore").catch(() => [])
+  ])).flat();
+  return dedupeOpportunities([
+    ...museResults,
+    ...remotiveResults,
+    ...jobicyResults
+  ]).slice(0, 60);
+}
 async function syncIndiaOpportunities() {
   try {
     const { opportunities, fetchedCount } = await collectLiveIndiaOpportunities();
@@ -1056,8 +1073,7 @@ async function getIndiaOpportunities(query) {
   let opportunities = await getStoredOpportunities();
   if (opportunities.length === 0) {
     try {
-      const live = await collectLiveIndiaOpportunities();
-      opportunities = live.opportunities;
+      opportunities = await collectFastIndiaFallback();
     } catch {
     }
   }

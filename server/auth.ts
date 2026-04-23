@@ -29,20 +29,22 @@ function getCookieValue(request: Request, cookieName: string) {
 }
 
 export function clearSessionCookie(response: Response) {
+  const sameSite = process.env.NODE_ENV === "production" ? "None" : "Lax";
   response.setHeader(
     "Set-Cookie",
-    `${SESSION_COOKIE_NAME}=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax${
+    `${SESSION_COOKIE_NAME}=; HttpOnly; Path=/; Max-Age=0; SameSite=${sameSite}${
       process.env.NODE_ENV === "production" ? "; Secure" : ""
     }`,
   );
 }
 
 function setSessionCookie(response: Response, token: string) {
+  const sameSite = process.env.NODE_ENV === "production" ? "None" : "Lax";
   response.setHeader(
     "Set-Cookie",
     `${SESSION_COOKIE_NAME}=${encodeURIComponent(token)}; HttpOnly; Path=/; Max-Age=${
       SESSION_TTL_MS / 1000
-    }; SameSite=Lax${process.env.NODE_ENV === "production" ? "; Secure" : ""}`,
+    }; SameSite=${sameSite}${process.env.NODE_ENV === "production" ? "; Secure" : ""}`,
   );
 }
 
@@ -74,11 +76,9 @@ export async function registerUser(input: unknown, response: Response) {
   const passwordHash = await bcrypt.hash(parsed.password, 10);
 
   if (db && isDatabaseConfigured) {
-    const existing = await db.query.users.findFirst({
-      where: eq(users.email, email),
-    });
+    const existing = await db.select().from(users).where(eq(users.email, email)).limit(1);
 
-    if (existing) {
+    if (existing[0]) {
       throw new Error("An account with that email already exists.");
     }
 
@@ -121,9 +121,8 @@ export async function loginUser(input: unknown, response: Response) {
   const email = parsed.email.trim().toLowerCase();
 
   if (db && isDatabaseConfigured) {
-    const user = await db.query.users.findFirst({
-      where: eq(users.email, email),
-    });
+    const matches = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    const user = matches[0];
 
     if (!user) {
       throw new Error("Invalid email or password.");
@@ -161,17 +160,19 @@ export async function getAuthenticatedUser(request: Request) {
   const tokenHash = hashToken(token);
 
   if (db && isDatabaseConfigured) {
-    const session = await db.query.authSessions.findFirst({
-      where: eq(authSessions.tokenHash, tokenHash),
-    });
+    const sessions = await db
+      .select()
+      .from(authSessions)
+      .where(eq(authSessions.tokenHash, tokenHash))
+      .limit(1);
+    const session = sessions[0];
 
     if (!session || session.expiresAt < new Date()) {
       return null;
     }
 
-    const user = await db.query.users.findFirst({
-      where: eq(users.id, session.userId),
-    });
+    const usersFound = await db.select().from(users).where(eq(users.id, session.userId)).limit(1);
+    const user = usersFound[0];
 
     return user ? authUserSchema.parse(user) : null;
   }

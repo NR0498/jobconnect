@@ -656,6 +656,36 @@ async function collectLiveIndiaOpportunities() {
   }
 }
 
+async function collectFastIndiaFallback() {
+  const museResults = (
+    await Promise.all([
+      fetchTheMusePage(1, "Chennai, India").catch(() => []),
+      fetchTheMusePage(1, "Bengaluru, India").catch(() => []),
+      fetchTheMusePage(1, "Hyderabad, India").catch(() => []),
+    ])
+  ).flat();
+
+  const remotiveResults = (
+    await Promise.all([
+      fetchRemotiveIndia("india").catch(() => []),
+      fetchRemotiveIndia("internship india").catch(() => []),
+    ])
+  ).flat();
+
+  const jobicyResults = (
+    await Promise.all([
+      fetchJobicyFeed("india").catch(() => []),
+      fetchJobicyFeed("bangalore").catch(() => []),
+    ])
+  ).flat();
+
+  return dedupeOpportunities([
+    ...museResults,
+    ...remotiveResults,
+    ...jobicyResults,
+  ]).slice(0, 60);
+}
+
 export async function syncIndiaOpportunities() {
   try {
     const { opportunities, fetchedCount } = await collectLiveIndiaOpportunities();
@@ -860,8 +890,7 @@ export async function getIndiaOpportunities(query: FeedQuery) {
   let opportunities = await getStoredOpportunities();
   if (opportunities.length === 0) {
     try {
-      const live = await collectLiveIndiaOpportunities();
-      opportunities = live.opportunities;
+      opportunities = await collectFastIndiaFallback();
     } catch {
       // If live fallback fails too, return the empty state cleanly.
     }
