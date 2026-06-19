@@ -1,11 +1,11 @@
 import { desc, eq, inArray } from "drizzle-orm";
 import { XMLParser } from "fast-xml-parser";
 import { nanoid } from "nanoid";
-import type { DashboardStats, Opportunity, Track } from "../shared/schema";
-import { jobs, syncRuns } from "../shared/schema";
-import { db, isDatabaseConfigured } from "./db";
-import { memoryStore } from "./memoryStore";
-import { getOllamaSearchExpansions } from "./ollama";
+import type { DashboardStats, Opportunity, Track } from "../shared/schema.js";
+import { jobs, syncRuns } from "../shared/schema.js";
+import { db, isDatabaseConfigured } from "./db.js";
+import { memoryStore } from "./memoryStore.js";
+import { getOllamaSearchExpansions } from "./ollama.js";
 
 type FeedQuery = {
   search?: string;

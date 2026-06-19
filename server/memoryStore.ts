@@ -1,4 +1,4 @@
-import type { AuthUser, Opportunity } from "../shared/schema";
+import type { AuthUser, Opportunity } from "../shared/schema.js";
 
 export const memoryStore = {
   users: new Map<

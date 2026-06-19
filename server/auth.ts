@@ -3,9 +3,9 @@ import crypto from "node:crypto";
 import { eq, lt } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import type { Request, Response } from "express";
-import { authSessions, authUserSchema, loginUserSchema, registerUserSchema, users } from "../shared/schema";
-import { db, isDatabaseConfigured } from "./db";
-import { memoryStore } from "./memoryStore";
+import { authSessions, authUserSchema, loginUserSchema, registerUserSchema, users } from "../shared/schema.js";
+import { db, isDatabaseConfigured } from "./db.js";
+import { memoryStore } from "./memoryStore.js";
 
 const SESSION_COOKIE_NAME = "jobconnect_session";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 14;

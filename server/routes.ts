@@ -1,11 +1,11 @@
 import type { Express, Request, Response } from "express";
-import { trackSchema } from "../shared/schema";
-import { getAuthenticatedUser, loginUser, logoutUser, registerUser } from "./auth";
+import { trackSchema } from "../shared/schema.js";
+import { getAuthenticatedUser, loginUser, logoutUser, registerUser } from "./auth.js";
 import {
   hasDatabaseInitializationError,
   isDatabaseConfigured,
-} from "./db";
-import { getIndiaOpportunities, syncIndiaOpportunities } from "./indiaJobs";
+} from "./db.js";
+import { getIndiaOpportunities, syncIndiaOpportunities } from "./indiaJobs.js";
 
 function hasRealConfigValue(value?: string) {
   if (!value) return false;

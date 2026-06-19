@@ -1,5 +1,5 @@
 import express, { type Express } from "express";
-import { registerRoutes } from "./routes";
+import { registerRoutes } from "./routes.js";
 
 export async function createApp() {
   const app: Express = express();
