@@ -84,6 +84,15 @@ export function registerRoutes(app: Express) {
         startupsOnly:
           request.query.startupsOnly === "true" ||
           request.query.startupsOnly === "1",
+        companyType:
+          request.query.companyType === "startup" ||
+          request.query.companyType === "large-company"
+            ? request.query.companyType
+            : undefined,
+        researchDomain:
+          typeof request.query.researchDomain === "string"
+            ? request.query.researchDomain
+            : undefined,
       });
 
       response.json(data);

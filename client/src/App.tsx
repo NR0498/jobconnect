@@ -11,16 +11,16 @@ export function App() {
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <Switch>
           <Route path="/">
-            <HomePage />
+            <HomePage page="all" />
           </Route>
           <Route path="/startups">
-            <HomePage startupsOnly />
+            <HomePage page="startups" />
           </Route>
           <Route path="/internships">
-            <HomePage initialTrack="internship" />
+            <HomePage page="internships" />
           </Route>
           <Route path="/research">
-            <HomePage initialTrack="research" />
+            <HomePage page="research" />
           </Route>
           <Route path="/login">
             <LoginPage />

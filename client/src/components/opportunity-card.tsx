@@ -27,6 +27,12 @@ export function OpportunityCard({ opportunity }: { opportunity: Opportunity }) {
                   Startup score {opportunity.startupScore}
                 </Badge>
               ) : null}
+              {opportunity.companyType === "large-company" ? (
+                <Badge>Large company</Badge>
+              ) : null}
+              {opportunity.researchDomain ? (
+                <Badge>{opportunity.researchDomain}</Badge>
+              ) : null}
             </div>
             <div>
               <CardTitle className="text-xl">{opportunity.title}</CardTitle>

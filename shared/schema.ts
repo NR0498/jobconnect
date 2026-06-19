@@ -117,6 +117,7 @@ export const opportunitySchema = z.object({
   visaSponsorship: z.boolean().default(false),
   startup: z.boolean().default(false),
   startupScore: z.number().default(0),
+  companyType: z.enum(["startup", "large-company", "other"]).default("other"),
   source: z.enum(["adzuna", "remotive", "themuse", "jobicy"]),
   sourceLabel: z.string(),
   sourceUrl: z.string().url(),
@@ -156,14 +157,22 @@ export const opportunitiesResponseSchema = z.object({
     location: z.string().optional(),
     track: trackSchema.optional(),
     startupsOnly: z.boolean().optional(),
+    companyType: z.enum(["startup", "large-company"]).optional(),
+    researchDomain: z.string().optional(),
   }),
   ai: z.object({
     enabled: z.boolean(),
+    provider: z.enum(["built-in", "ollama"]).optional(),
     model: z.string().optional(),
     notes: z.string().optional(),
     expansions: z.array(z.string()).optional(),
   }),
   stats: dashboardStatsSchema,
+  sourceCounts: z.record(z.string(), z.number()),
+  researchDomains: z.array(z.object({
+    domain: z.string(),
+    count: z.number(),
+  })),
   opportunities: z.array(opportunitySchema),
 });
 

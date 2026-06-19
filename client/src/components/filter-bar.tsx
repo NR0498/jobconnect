@@ -13,6 +13,8 @@ type FilterBarProps = {
   onLocationChange: (value: string) => void;
   onTrackChange: (value: Track) => void;
   onStartupToggle: () => void;
+  showTrackTabs?: boolean;
+  showStartupToggle?: boolean;
 };
 
 export function FilterBar(props: FilterBarProps) {
@@ -33,12 +35,14 @@ export function FilterBar(props: FilterBarProps) {
           onChange={(event) => props.onLocationChange(event.target.value)}
           placeholder="Filter by city, country, or remote"
         />
-        <Button variant={props.startupsOnly ? "default" : "outline"} onClick={props.onStartupToggle}>
-          {props.startupsOnly ? "Showing startups" : "Startups only"}
-        </Button>
+        {props.showStartupToggle !== false ? (
+          <Button variant={props.startupsOnly ? "default" : "outline"} onClick={props.onStartupToggle}>
+            {props.startupsOnly ? "Showing startups" : "Startups only"}
+          </Button>
+        ) : <div />}
       </div>
 
-      <Tabs>
+      {props.showTrackTabs !== false ? <Tabs>
         {[
           { value: "all", label: "All" },
           { value: "internship", label: "Internships" },
@@ -53,7 +57,7 @@ export function FilterBar(props: FilterBarProps) {
             {item.label}
           </TabButton>
         ))}
-      </Tabs>
+      </Tabs> : null}
     </div>
   );
 }

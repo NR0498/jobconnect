@@ -1,4 +1,4 @@
-import { desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { XMLParser } from "fast-xml-parser";
 import { nanoid } from "nanoid";
 import type { DashboardStats, Opportunity, Track } from "../shared/schema.js";
@@ -12,6 +12,13 @@ type FeedQuery = {
   location?: string;
   track?: Track;
   startupsOnly?: boolean;
+  companyType?: "startup" | "large-company";
+  researchDomain?: string;
+};
+
+type SourceReport = {
+  counts: Record<string, number>;
+  errors: Record<string, string[]>;
 };
 
 type AdzunaResult = {
@@ -121,6 +128,13 @@ const JOBICY_KEYWORDS = [
   "delhi",
 ];
 
+const LARGE_COMPANIES = [
+  "amazon", "apple", "accenture", "adobe", "bank of america", "bechtel",
+  "celonis", "cisco", "coca-cola", "deloitte", "doordash", "google", "ibm",
+  "infosys", "intel", "jpmorgan", "microsoft", "oracle", "salesforce",
+  "samsung", "tata consultancy", "tcs", "uber", "walmart", "wipro",
+];
+
 function hasRealConfigValue(value?: string) {
   if (!value) return false;
   const normalized = value.trim().toLowerCase();
@@ -166,6 +180,24 @@ function getStartupScore(input: { title: string; company: string; summary: strin
   }
 
   return Math.min(100, score);
+}
+
+function getCompanyType(company: string, startupScore: number): Opportunity["companyType"] {
+  const normalized = company.toLowerCase();
+  if (LARGE_COMPANIES.some((name) => normalized.includes(name))) {
+    return "large-company";
+  }
+  return startupScore >= 50 ? "startup" : "other";
+}
+
+function inferResearchDomain(title: string, summary: string, tags: string[]) {
+  const corpus = [title, summary, ...tags].join(" ").toLowerCase();
+  if (/(machine learning|artificial intelligence|deep learning|computer vision|nlp|robotics)/.test(corpus)) return "AI & Robotics";
+  if (/(bio|clinical|medical|pharma|genomics|health|neuro)/.test(corpus)) return "Life Sciences";
+  if (/(climate|energy|environment|sustainability|earth)/.test(corpus)) return "Climate & Energy";
+  if (/(physics|quantum|material|chemistry)/.test(corpus)) return "Physical Sciences";
+  if (/(economics|policy|social science|psychology|education)/.test(corpus)) return "Social Sciences";
+  return "Computing & Engineering";
 }
 
 function extractDomain(url: string) {
@@ -238,16 +270,18 @@ function normalizeAdzunaOpportunity(job: AdzunaResult): Opportunity {
     state,
     city,
     visaSponsorship: /visa|sponsor/i.test(summary),
-    startup: startupScore >= 50,
+    startup: getCompanyType(job.company?.display_name ?? "Unknown company", startupScore) === "startup",
     startupScore,
+    companyType: getCompanyType(job.company?.display_name ?? "Unknown company", startupScore),
     source: "adzuna",
     sourceLabel: "Jobs by Adzuna",
     sourceUrl: job.redirect_url,
     officialApplyUrl: job.redirect_url,
     applyDomain: extractDomain(job.redirect_url),
     postedAt: job.created,
-    researchDomain:
-      inferTrack(job.title, summary) === "research" ? job.category?.label ?? "Research" : undefined,
+    researchDomain: inferTrack(job.title, summary) === "research"
+      ? inferResearchDomain(job.title, summary, tags)
+      : undefined,
   };
 }
 
@@ -291,18 +325,18 @@ function normalizeTheMuseOpportunity(job: TheMuseResult): Opportunity | null {
     state,
     city,
     visaSponsorship: /visa|sponsor/i.test(summary),
-    startup: startupScore >= 50,
+    startup: getCompanyType(job.company?.name ?? "Unknown company", startupScore) === "startup",
     startupScore,
+    companyType: getCompanyType(job.company?.name ?? "Unknown company", startupScore),
     source: "themuse",
     sourceLabel: "The Muse",
     sourceUrl: landingPage,
     officialApplyUrl: landingPage,
     applyDomain: extractDomain(landingPage),
     postedAt: job.publication_date,
-    researchDomain:
-      inferTrack(job.name, summary) === "research"
-        ? tags.find((tag) => /research|science/i.test(tag)) ?? "Research"
-        : undefined,
+    researchDomain: inferTrack(job.name, summary) === "research"
+      ? inferResearchDomain(job.name, summary, tags)
+      : undefined,
   };
 }
 
@@ -339,18 +373,18 @@ function normalizeRemotiveOpportunity(job: RemotiveJob): Opportunity | null {
     state,
     city,
     visaSponsorship: /visa|sponsor/i.test(summary),
-    startup: startupScore >= 50,
+    startup: getCompanyType(job.company_name, startupScore) === "startup",
     startupScore,
+    companyType: getCompanyType(job.company_name, startupScore),
     source: "remotive",
     sourceLabel: "Remotive",
     sourceUrl: job.url,
     officialApplyUrl: job.url,
     applyDomain: extractDomain(job.url),
     postedAt: job.publication_date,
-    researchDomain:
-      inferTrack(job.title, summary) === "research"
-        ? job.category ?? "Research"
-        : undefined,
+    researchDomain: inferTrack(job.title, summary) === "research"
+      ? inferResearchDomain(job.title, summary, tags)
+      : undefined,
   };
 }
 
@@ -396,18 +430,18 @@ function normalizeJobicyOpportunity(job: JobicyItem, keyword: string): Opportuni
     state,
     city,
     visaSponsorship: /visa|sponsor/i.test(summary),
-    startup: startupScore >= 50,
+    startup: getCompanyType("Remote Company", startupScore) === "startup",
     startupScore,
+    companyType: getCompanyType("Remote Company", startupScore),
     source: "jobicy",
     sourceLabel: "Jobicy",
     sourceUrl: link,
     officialApplyUrl: link,
     applyDomain: extractDomain(link),
     postedAt: job.pubDate ? new Date(job.pubDate).toISOString() : undefined,
-    researchDomain:
-      inferTrack(title, summary) === "research"
-        ? tags.find((tag) => /research|science/i.test(tag)) ?? "Research"
-        : undefined,
+    researchDomain: inferTrack(title, summary) === "research"
+      ? inferResearchDomain(title, summary, tags)
+      : undefined,
   };
 }
 
@@ -423,7 +457,7 @@ async function fetchAdzunaPage(page: number, what: string, where?: string) {
   url.searchParams.set("app_id", appId!);
   url.searchParams.set("app_key", appKey!);
   url.searchParams.set("results_per_page", "20");
-  url.searchParams.set("what", what);
+  if (what) url.searchParams.set("what", what);
   url.searchParams.set("content-type", "application/json");
   url.searchParams.set("sort_by", "date");
   if (where) url.searchParams.set("where", where);
@@ -606,54 +640,80 @@ async function collectLiveIndiaOpportunities() {
     "frontend engineer india",
   ];
 
-  try {
-    const museResults = (
-      await Promise.all(
-        INDIAN_CITIES.flatMap((location) => [
-          fetchTheMusePage(1, location).catch(() => []),
-          fetchTheMusePage(2, location).catch(() => []),
-        ]),
-      )
-    ).flat();
+  const report: SourceReport = { counts: {}, errors: {} };
+  const collect = async (
+    source: string,
+    requests: Array<Promise<Opportunity[]>>,
+  ) => {
+    const settled = await Promise.allSettled(requests);
+    const results = settled.flatMap((result) => {
+      if (result.status === "fulfilled") return result.value;
+      report.errors[source] ??= [];
+      report.errors[source].push(
+        result.reason instanceof Error ? result.reason.message : String(result.reason),
+      );
+      return [];
+    });
+    report.counts[source] = results.length;
+    return results;
+  };
 
-    const remotiveResults = (
-      await Promise.all(remotiveQueries.map((query) => fetchRemotiveIndia(query).catch(() => [])))
-    ).flat();
+  const museResults = await collect(
+    "themuse",
+    INDIAN_CITIES.flatMap((location) => [
+      fetchTheMusePage(1, location),
+      fetchTheMusePage(2, location),
+    ]),
+  );
 
-    const jobicyResults = (
-      await Promise.all(JOBICY_KEYWORDS.map((keyword) => fetchJobicyFeed(keyword).catch(() => [])))
-    ).flat();
+  const remotiveResults = await collect(
+    "remotive",
+    remotiveQueries.map((query) => fetchRemotiveIndia(query)),
+  );
 
-    const adzunaResults =
-      hasRealConfigValue(process.env.ADZUNA_APP_ID) &&
-      hasRealConfigValue(process.env.ADZUNA_APP_KEY)
-      ? (
-          await Promise.all(
-            ["software engineer", "internship", "research engineer", "data analyst"].flatMap(
-              (query) => [
-                fetchAdzunaPage(1, query).catch(() => []),
-                fetchAdzunaPage(2, query).catch(() => []),
-              ],
-            ),
-          )
-        ).flat()
+  const jobicyResults = await collect(
+    "jobicy",
+    JOBICY_KEYWORDS.map((keyword) => fetchJobicyFeed(keyword)),
+  );
+
+  const adzunaQueries = [
+    "",
+    "software engineer",
+    "data analyst",
+    "product manager",
+    "internship",
+    "research scientist",
+    "startup",
+    "founding engineer",
+    "finance",
+    "marketing",
+  ];
+  const adzunaResults =
+    hasRealConfigValue(process.env.ADZUNA_APP_ID) &&
+    hasRealConfigValue(process.env.ADZUNA_APP_KEY)
+      ? await collect(
+          "adzuna",
+          adzunaQueries.flatMap((query) => [
+            fetchAdzunaPage(1, query),
+            fetchAdzunaPage(2, query),
+          ]),
+        )
       : [];
 
-    const opportunities = dedupeOpportunities([
-      ...museResults,
-      ...remotiveResults,
-      ...jobicyResults,
-      ...adzunaResults,
-    ]);
+  report.counts.adzuna ??= 0;
+  const opportunities = dedupeOpportunities([
+    ...museResults,
+    ...remotiveResults,
+    ...jobicyResults,
+    ...adzunaResults,
+  ]);
 
-    return {
-      opportunities,
-      fetchedCount:
-        museResults.length + remotiveResults.length + jobicyResults.length + adzunaResults.length,
-    };
-  } catch (error) {
-    throw error;
-  }
+  return {
+    opportunities,
+    fetchedCount:
+      museResults.length + remotiveResults.length + jobicyResults.length + adzunaResults.length,
+    report,
+  };
 }
 
 async function collectFastIndiaFallback() {
@@ -688,7 +748,7 @@ async function collectFastIndiaFallback() {
 
 export async function syncIndiaOpportunities() {
   try {
-    const { opportunities, fetchedCount } = await collectLiveIndiaOpportunities();
+    const { opportunities, fetchedCount, report } = await collectLiveIndiaOpportunities();
 
     if (db && isDatabaseConfigured) {
       for (const opportunity of opportunities) {
@@ -753,34 +813,41 @@ export async function syncIndiaOpportunities() {
           });
       }
 
-      const opportunityIds = opportunities.map((item) => item.id);
-      if (opportunityIds.length > 0) {
-        await db
-          .update(jobs)
-          .set({
-            isActive: false,
-          })
-          .where(eq(jobs.isActive, true));
+      for (const source of ["themuse", "remotive", "jobicy", "adzuna"] as const) {
+        if (report.errors[source]?.length) continue;
+        const opportunityIds = opportunities
+          .filter((item) => item.source === source)
+          .map((item) => item.id);
 
         await db
           .update(jobs)
-          .set({
-            isActive: true,
-          })
-          .where(inArray(jobs.id, opportunityIds));
+          .set({ isActive: false })
+          .where(and(eq(jobs.isActive, true), eq(jobs.source, source)));
+
+        if (opportunityIds.length) {
+          await db
+            .update(jobs)
+            .set({ isActive: true })
+            .where(inArray(jobs.id, opportunityIds));
+        }
       }
 
       await saveSyncRun(
         "success",
         fetchedCount,
         opportunities.length,
+        JSON.stringify(report),
       );
     } else {
       memoryStore.opportunities = opportunities;
       memoryStore.lastSyncAt = new Date();
     }
 
-    return opportunities.length;
+    return {
+      total: opportunities.length,
+      sources: report.counts,
+      errors: report.errors,
+    };
   } catch (error) {
     await saveSyncRun(
       "failed",
@@ -792,7 +859,11 @@ export async function syncIndiaOpportunities() {
   }
 }
 
-function filterOpportunities(opportunities: Opportunity[], query: FeedQuery) {
+function filterOpportunities(
+  opportunities: Opportunity[],
+  query: FeedQuery,
+  searchTerms: string[],
+) {
   return opportunities.filter((opportunity) => {
     if (query.track && query.track !== "all" && opportunity.track !== query.track) {
       return false;
@@ -802,17 +873,31 @@ function filterOpportunities(opportunities: Opportunity[], query: FeedQuery) {
       return false;
     }
 
+    if (query.companyType && opportunity.companyType !== query.companyType) {
+      return false;
+    }
+
     if (
-      query.search &&
-      ![
-        opportunity.title,
-        opportunity.company,
-        opportunity.summary,
-        opportunity.tags.join(" "),
-      ]
-        .join(" ")
-        .toLowerCase()
-        .includes(query.search.toLowerCase())
+      query.researchDomain &&
+      opportunity.researchDomain !== query.researchDomain
+    ) {
+      return false;
+    }
+
+    if (
+      searchTerms.length &&
+      !searchTerms.some((term) =>
+        [
+          opportunity.title,
+          opportunity.company,
+          opportunity.summary,
+          opportunity.tags.join(" "),
+          opportunity.researchDomain ?? "",
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(term.toLowerCase()),
+      )
     ) {
       return false;
     }
@@ -846,8 +931,9 @@ async function getStoredOpportunities() {
       state: row.state ?? undefined,
       city: row.city ?? undefined,
       visaSponsorship: row.visaSponsorship,
-      startup: row.startup,
+      startup: getCompanyType(row.companyName, row.startupScore) === "startup",
       startupScore: row.startupScore,
+      companyType: getCompanyType(row.companyName, row.startupScore),
       source: row.source as Opportunity["source"],
       sourceLabel: row.sourceLabel,
       sourceUrl: row.sourceUrl,
@@ -898,18 +984,7 @@ export async function getIndiaOpportunities(query: FeedQuery) {
 
   const searchTerms = [query.search, ...(ai.expansions ?? [])].filter(Boolean) as string[];
 
-  if (searchTerms.length > 1) {
-    opportunities = opportunities.filter((opportunity) =>
-      searchTerms.some((term) =>
-        [opportunity.title, opportunity.company, opportunity.summary, opportunity.tags.join(" ")]
-          .join(" ")
-          .toLowerCase()
-          .includes(term.toLowerCase()),
-      ),
-    );
-  }
-
-  opportunities = filterOpportunities(opportunities, query).sort((a, b) => {
+  opportunities = filterOpportunities(opportunities, query, searchTerms).sort((a, b) => {
     if (query.startupsOnly) return b.startupScore - a.startupScore;
     return new Date(b.postedAt ?? 0).getTime() - new Date(a.postedAt ?? 0).getTime();
   });
@@ -919,6 +994,20 @@ export async function getIndiaOpportunities(query: FeedQuery) {
     query,
     ai,
     stats: buildDashboardStats(opportunities),
+    sourceCounts: opportunities.reduce<Record<string, number>>((counts, item) => {
+      counts[item.source] = (counts[item.source] ?? 0) + 1;
+      return counts;
+    }, {}),
+    researchDomains: Object.entries(
+      opportunities.reduce<Record<string, number>>((counts, item) => {
+        if (item.researchDomain) {
+          counts[item.researchDomain] = (counts[item.researchDomain] ?? 0) + 1;
+        }
+        return counts;
+      }, {}),
+    )
+      .map(([domain, count]) => ({ domain, count }))
+      .sort((a, b) => b.count - a.count),
     opportunities,
   };
 }

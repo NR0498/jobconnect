@@ -6,6 +6,8 @@ type OpportunityQuery = {
   location: string;
   track: Track;
   startupsOnly: boolean;
+  companyType?: "startup" | "large-company";
+  researchDomain?: string;
 };
 
 function buildQueryString(query: OpportunityQuery) {
@@ -26,6 +28,8 @@ function buildQueryString(query: OpportunityQuery) {
   if (query.startupsOnly) {
     params.set("startupsOnly", "true");
   }
+  if (query.companyType) params.set("companyType", query.companyType);
+  if (query.researchDomain) params.set("researchDomain", query.researchDomain);
 
   return params.toString();
 }

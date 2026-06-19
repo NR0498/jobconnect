@@ -5,39 +5,72 @@ const expansionSchema = z.object({
   notes: z.string().optional(),
 });
 
-export type OllamaExpansionResult = z.infer<typeof expansionSchema>;
+const SEARCH_GROUPS = [
+  ["software engineer", "software developer", "backend engineer", "frontend engineer"],
+  ["data scientist", "data analyst", "machine learning", "artificial intelligence"],
+  ["intern", "internship", "trainee", "apprentice"],
+  ["research", "researcher", "scientist", "research assistant"],
+  ["product manager", "product analyst", "product owner"],
+  ["designer", "ui designer", "ux designer", "product designer"],
+  ["marketing", "growth", "digital marketing", "content marketing"],
+];
+
+function builtInExpansions(search: string) {
+  const normalized = search.trim().toLowerCase();
+  if (!normalized) return [];
+
+  const group = SEARCH_GROUPS.find((items) =>
+    items.some((item) => normalized.includes(item) || item.includes(normalized)),
+  );
+
+  return group
+    ? group.filter((item) => item !== normalized).slice(0, 5)
+    : [];
+}
 
 function normalizeBaseUrl(baseUrl: string) {
   return baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
 }
 
 export async function getOllamaSearchExpansions(search: string) {
+  const fallback = builtInExpansions(search);
   const baseUrl = process.env.OLLAMA_BASE_URL;
   const model = process.env.OLLAMA_MODEL;
 
-  if (!baseUrl || !model || !search.trim()) {
+  if (!search.trim()) {
     return {
-      enabled: false,
-      model,
-      notes: "Set OLLAMA_BASE_URL and OLLAMA_MODEL to enable local query expansion.",
+      enabled: true,
+      provider: "built-in" as const,
+      notes: "Search intelligence is ready. Enter a role, skill, or research field.",
       expansions: [] as string[],
+    };
+  }
+
+  const localOnly =
+    baseUrl &&
+    /^(https?:\/\/)?(127\.0\.0\.1|localhost)(:\d+)?/i.test(baseUrl);
+
+  if (!baseUrl || !model || (process.env.VERCEL && localOnly)) {
+    return {
+      enabled: true,
+      provider: "built-in" as const,
+      notes: fallback.length
+        ? `Expanded with related terms: ${fallback.join(", ")}.`
+        : "Using production-safe keyword intelligence.",
+      expansions: fallback,
     };
   }
 
   try {
     const response = await fetch(`${normalizeBaseUrl(baseUrl)}/api/generate`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         model,
         stream: false,
-        prompt: `You help a job search product expand user queries into practical keyword variations for internet job search APIs.
-Return strict JSON with this exact shape: {"expansions":["..."],"notes":"..."}.
-The expansions should be concise and useful for finding internships, full-time roles, and research opportunities.
-Search query: ${search}`,
+        prompt: `Return strict JSON: {"expansions":["..."],"notes":"..."}. Expand this India job search into at most five concise related role keywords: ${search}`,
       }),
+      signal: AbortSignal.timeout(5000),
     });
 
     if (!response.ok) {
@@ -46,26 +79,23 @@ Search query: ${search}`,
 
     const raw = (await response.json()) as { response?: string };
     const parsed = expansionSchema.safeParse(JSON.parse(raw.response ?? "{}"));
-
-    if (!parsed.success) {
-      throw new Error("Ollama response did not match expected schema");
-    }
+    if (!parsed.success) throw new Error("Invalid Ollama response");
 
     return {
       enabled: true,
+      provider: "ollama" as const,
       model,
       notes: parsed.data.notes,
       expansions: parsed.data.expansions,
     };
-  } catch (error) {
+  } catch {
     return {
-      enabled: false,
-      model,
-      notes:
-        error instanceof Error
-          ? `Ollama was configured but unavailable: ${error.message}`
-          : "Ollama was configured but unavailable.",
-      expansions: [] as string[],
+      enabled: true,
+      provider: "built-in" as const,
+      notes: fallback.length
+        ? `Expanded with related terms: ${fallback.join(", ")}.`
+        : "Using production-safe keyword intelligence.",
+      expansions: fallback,
     };
   }
 }
