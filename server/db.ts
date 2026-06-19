@@ -1,15 +1,29 @@
 import "dotenv/config";
-import { neonConfig, neon } from "@neondatabase/serverless";
+import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
-import ws from "ws";
 import * as schema from "../shared/schema";
 
-neonConfig.webSocketConstructor = ws;
+const databaseUrl = process.env.DATABASE_URL?.trim();
 
-export const isDatabaseConfigured = Boolean(process.env.DATABASE_URL);
+let databaseInitializationFailed = false;
 
-const sql = isDatabaseConfigured ? neon(process.env.DATABASE_URL as string) : null;
+function createDatabase() {
+  if (!databaseUrl) {
+    return null;
+  }
 
-export const db = sql ? drizzle(sql, { schema }) : null;
+  try {
+    const sql = neon(databaseUrl);
+    return drizzle(sql, { schema });
+  } catch (error) {
+    databaseInitializationFailed = true;
+    console.error("Failed to initialize the database connection.", error);
+    return null;
+  }
+}
+
+export const db = createDatabase();
+export const isDatabaseConfigured = db !== null;
+export const hasDatabaseInitializationError = databaseInitializationFailed;
 
 export { schema };

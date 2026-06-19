@@ -1,6 +1,10 @@
 import type { Express, Request, Response } from "express";
 import { trackSchema } from "../shared/schema";
 import { getAuthenticatedUser, loginUser, logoutUser, registerUser } from "./auth";
+import {
+  hasDatabaseInitializationError,
+  isDatabaseConfigured,
+} from "./db";
 import { getIndiaOpportunities, syncIndiaOpportunities } from "./indiaJobs";
 
 function hasRealConfigValue(value?: string) {
@@ -24,7 +28,8 @@ export function registerRoutes(app: Express) {
     response.json({
       ok: true,
       now: new Date().toISOString(),
-      databaseConfigured: Boolean(process.env.DATABASE_URL),
+      databaseConfigured: isDatabaseConfigured,
+      databaseInitializationError: hasDatabaseInitializationError,
       adzunaConfigured:
         hasRealConfigValue(process.env.ADZUNA_APP_ID) &&
         hasRealConfigValue(process.env.ADZUNA_APP_KEY),
