@@ -9,8 +9,20 @@ export default async function handler(req: any, res: any) {
     return app(req, res);
   } catch (error) {
     console.error("Failed to initialize the API function.", error);
+    const details =
+      error instanceof Error
+        ? {
+            name: error.name,
+            message: error.message,
+          }
+        : {
+            name: "UnknownError",
+            message: String(error),
+          };
+
     return res.status(500).json({
       message: "The API failed to initialize.",
+      error: details,
     });
   }
 }
