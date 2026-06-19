@@ -36,6 +36,12 @@ export function registerRoutes(app: Express) {
       ollamaConfigured: Boolean(
         process.env.OLLAMA_BASE_URL && process.env.OLLAMA_MODEL,
       ),
+      employerBoards: {
+        greenhouse: Boolean(process.env.GREENHOUSE_BOARDS?.trim()),
+        lever: Boolean(process.env.LEVER_SITES?.trim()),
+        ashby: Boolean(process.env.ASHBY_BOARDS?.trim()),
+        arbeitnow: true,
+      },
     });
   });
 

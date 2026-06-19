@@ -101,6 +101,85 @@ type JobicyItem = {
   category?: string | string[];
 };
 
+type EmployerBoard = {
+  token: string;
+  company: string;
+};
+
+type GreenhouseJob = {
+  id: number;
+  title: string;
+  updated_at?: string;
+  absolute_url: string;
+  content?: string;
+  company_name?: string;
+  location?: { name?: string };
+  departments?: Array<{ name?: string }>;
+  offices?: Array<{ name?: string; location?: string }>;
+};
+
+type GreenhouseResponse = {
+  jobs?: GreenhouseJob[];
+};
+
+type LeverJob = {
+  id: string;
+  text: string;
+  categories?: {
+    location?: string;
+    commitment?: string;
+    team?: string;
+    department?: string;
+    allLocations?: string[];
+  };
+  country?: string;
+  descriptionPlain?: string;
+  openingPlain?: string;
+  additionalPlain?: string;
+  hostedUrl: string;
+  applyUrl?: string;
+  workplaceType?: "unspecified" | "on-site" | "remote" | "hybrid";
+  salaryDescriptionPlain?: string;
+  createdAt?: number;
+};
+
+type AshbyJob = {
+  id: string;
+  title: string;
+  location?: string;
+  department?: string;
+  team?: string;
+  employmentType?: string;
+  isRemote?: boolean;
+  descriptionHtml?: string;
+  descriptionPlain?: string;
+  publishedAt?: string;
+  jobUrl: string;
+  applyUrl?: string;
+};
+
+type AshbyResponse = {
+  jobs?: AshbyJob[];
+};
+
+type ArbeitnowJob = {
+  slug: string;
+  company_name: string;
+  title: string;
+  description?: string;
+  remote?: boolean;
+  url: string;
+  tags?: string[];
+  job_types?: string[];
+  location?: string;
+  created_at?: number;
+};
+
+type ArbeitnowResponse = {
+  data?: ArbeitnowJob[];
+  links?: { next?: string | null };
+};
+
 const INDIAN_CITIES = [
   "Bengaluru, India",
   "Bangalore, India",
@@ -134,6 +213,33 @@ const LARGE_COMPANIES = [
   "infosys", "intel", "jpmorgan", "microsoft", "oracle", "salesforce",
   "samsung", "tata consultancy", "tcs", "uber", "walmart", "wipro",
 ];
+
+function parseEmployerBoards(value?: string) {
+  if (!value?.trim()) return [] as EmployerBoard[];
+
+  return value
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .map((entry) => {
+      const [rawToken, rawCompany] = entry.split("|");
+      const token = rawToken.trim();
+      const company = rawCompany?.trim() || token
+        .split(/[-_]/)
+        .filter(Boolean)
+        .map((part) => part[0]?.toUpperCase() + part.slice(1))
+        .join(" ");
+      return { token, company };
+    });
+}
+
+function getConfiguredEmployerBoards() {
+  return {
+    greenhouse: parseEmployerBoards(process.env.GREENHOUSE_BOARDS),
+    lever: parseEmployerBoards(process.env.LEVER_SITES),
+    ashby: parseEmployerBoards(process.env.ASHBY_BOARDS),
+  };
+}
 
 function hasRealConfigValue(value?: string) {
   if (!value) return false;
@@ -445,6 +551,161 @@ function normalizeJobicyOpportunity(job: JobicyItem, keyword: string): Opportuni
   };
 }
 
+function normalizeEmployerOpportunity(input: {
+  id: string;
+  title: string;
+  company: string;
+  location?: string;
+  summary?: string;
+  employmentType?: string;
+  tags?: string[];
+  remote?: boolean;
+  source: "greenhouse" | "lever" | "ashby" | "arbeitnow";
+  sourceLabel: string;
+  sourceUrl: string;
+  applyUrl?: string;
+  postedAt?: string;
+  compensation?: string;
+}): Opportunity | null {
+  const location = input.location?.trim() || "Location not specified";
+  const summary = stripHtml(input.summary);
+  const tags = [...new Set((input.tags ?? []).filter(Boolean))];
+  const indiaRelevant =
+    isIndiaLocation(location) ||
+    (input.remote === true && isIndiaLocation(`${input.title} ${summary}`));
+
+  if (!indiaRelevant) return null;
+
+  const track = inferTrack(input.title, summary);
+  const startupScore = getStartupScore({
+    title: input.title,
+    company: input.company,
+    summary,
+    tags,
+  });
+  const companyType = getCompanyType(input.company, startupScore);
+  const parsedLocation = getStateAndCity(location);
+
+  return {
+    id: `${input.source}-${input.id}`,
+    title: input.title,
+    company: input.company,
+    location,
+    summary,
+    employmentType: input.employmentType || "Not specified",
+    track,
+    tags,
+    compensation: input.compensation,
+    remote: input.remote === true || /remote|hybrid/i.test(location),
+    country: "India",
+    state: parsedLocation.state,
+    city: parsedLocation.city,
+    visaSponsorship: /visa|sponsor/i.test(summary),
+    startup: companyType === "startup",
+    startupScore,
+    companyType,
+    source: input.source,
+    sourceLabel: input.sourceLabel,
+    sourceUrl: input.sourceUrl,
+    officialApplyUrl: input.applyUrl || input.sourceUrl,
+    applyDomain: extractDomain(input.applyUrl || input.sourceUrl),
+    postedAt: input.postedAt,
+    researchDomain:
+      track === "research"
+        ? inferResearchDomain(input.title, summary, tags)
+        : undefined,
+  };
+}
+
+function normalizeGreenhouseOpportunity(job: GreenhouseJob, board: EmployerBoard) {
+  const company = job.company_name?.trim() || board.company;
+  const location =
+    job.location?.name ||
+    job.offices?.map((office) => office.location || office.name).filter(Boolean).join(", ") ||
+    "Location not specified";
+  const tags = (job.departments ?? []).map((department) => department.name).filter(Boolean) as string[];
+
+  return normalizeEmployerOpportunity({
+    id: `${board.token}-${job.id}`,
+    title: job.title,
+    company,
+    location,
+    summary: job.content,
+    tags,
+    source: "greenhouse",
+    sourceLabel: `${company} via Greenhouse`,
+    sourceUrl: job.absolute_url,
+    postedAt: job.updated_at,
+  });
+}
+
+function normalizeLeverOpportunity(job: LeverJob, board: EmployerBoard) {
+  const location =
+    job.categories?.allLocations?.join(", ") ||
+    job.categories?.location ||
+    "Location not specified";
+  const tags = [
+    job.categories?.team,
+    job.categories?.department,
+    job.categories?.commitment,
+  ].filter(Boolean) as string[];
+
+  return normalizeEmployerOpportunity({
+    id: `${board.token}-${job.id}`,
+    title: job.text,
+    company: board.company,
+    location,
+    summary:
+      job.descriptionPlain ||
+      [job.openingPlain, job.additionalPlain].filter(Boolean).join(" "),
+    employmentType: job.categories?.commitment,
+    tags,
+    remote: job.workplaceType === "remote",
+    source: "lever",
+    sourceLabel: `${board.company} via Lever`,
+    sourceUrl: job.hostedUrl,
+    applyUrl: job.applyUrl,
+    postedAt: job.createdAt ? new Date(job.createdAt).toISOString() : undefined,
+    compensation: job.salaryDescriptionPlain,
+  });
+}
+
+function normalizeAshbyOpportunity(job: AshbyJob, board: EmployerBoard) {
+  const tags = [job.department, job.team].filter(Boolean) as string[];
+  return normalizeEmployerOpportunity({
+    id: `${board.token}-${job.id}`,
+    title: job.title,
+    company: board.company,
+    location: job.location,
+    summary: job.descriptionPlain || job.descriptionHtml,
+    employmentType: job.employmentType,
+    tags,
+    remote: job.isRemote,
+    source: "ashby",
+    sourceLabel: `${board.company} via Ashby`,
+    sourceUrl: job.jobUrl,
+    applyUrl: job.applyUrl,
+    postedAt: job.publishedAt,
+  });
+}
+
+function normalizeArbeitnowOpportunity(job: ArbeitnowJob) {
+  return normalizeEmployerOpportunity({
+    id: job.slug,
+    title: job.title,
+    company: job.company_name,
+    location: job.location,
+    summary: job.description,
+    employmentType: job.job_types?.join(", "),
+    tags: [...(job.tags ?? []), ...(job.job_types ?? [])],
+    remote: job.remote,
+    source: "arbeitnow",
+    sourceLabel: "Arbeitnow",
+    sourceUrl: job.url,
+    postedAt: job.created_at ? new Date(job.created_at * 1000).toISOString() : undefined,
+  });
+}
+
 async function fetchAdzunaPage(page: number, what: string, where?: string) {
   const appId = process.env.ADZUNA_APP_ID;
   const appKey = process.env.ADZUNA_APP_KEY;
@@ -557,6 +818,102 @@ async function fetchJobicyFeed(keyword: string) {
     .filter(Boolean) as Opportunity[];
 }
 
+async function fetchGreenhouseBoard(board: EmployerBoard) {
+  const url = new URL(
+    `https://boards-api.greenhouse.io/v1/boards/${encodeURIComponent(board.token)}/jobs`,
+  );
+  url.searchParams.set("content", "true");
+
+  const response = await fetch(url, {
+    headers: { "User-Agent": "JobConnect India/1.0" },
+    signal: AbortSignal.timeout(12_000),
+  });
+  if (!response.ok) {
+    throw new Error(`Greenhouse ${board.token} failed with ${response.status}`);
+  }
+
+  const data = (await response.json()) as GreenhouseResponse;
+  return (data.jobs ?? [])
+    .map((job) => normalizeGreenhouseOpportunity(job, board))
+    .filter(Boolean) as Opportunity[];
+}
+
+async function fetchLeverSite(board: EmployerBoard) {
+  const url = new URL(
+    `https://api.lever.co/v0/postings/${encodeURIComponent(board.token)}`,
+  );
+  url.searchParams.set("mode", "json");
+  url.searchParams.set("limit", "200");
+
+  const response = await fetch(url, {
+    headers: {
+      Accept: "application/json",
+      "User-Agent": "JobConnect India/1.0",
+    },
+    signal: AbortSignal.timeout(12_000),
+  });
+  if (!response.ok) {
+    throw new Error(`Lever ${board.token} failed with ${response.status}`);
+  }
+
+  const jobs = (await response.json()) as LeverJob[];
+  return jobs
+    .map((job) => normalizeLeverOpportunity(job, board))
+    .filter(Boolean) as Opportunity[];
+}
+
+async function fetchAshbyBoard(board: EmployerBoard) {
+  const url = new URL(
+    `https://api.ashbyhq.com/posting-api/job-board/${encodeURIComponent(board.token)}`,
+  );
+  url.searchParams.set("includeCompensation", "true");
+
+  const response = await fetch(url, {
+    headers: {
+      Accept: "application/json",
+      "User-Agent": "JobConnect India/1.0",
+    },
+    signal: AbortSignal.timeout(12_000),
+  });
+  if (!response.ok) {
+    throw new Error(`Ashby ${board.token} failed with ${response.status}`);
+  }
+
+  const data = (await response.json()) as AshbyResponse;
+  return (data.jobs ?? [])
+    .map((job) => normalizeAshbyOpportunity(job, board))
+    .filter(Boolean) as Opportunity[];
+}
+
+async function fetchArbeitnowPages(pageCount = 3) {
+  const results: Opportunity[] = [];
+
+  for (let page = 1; page <= pageCount; page += 1) {
+    const url = new URL("https://www.arbeitnow.com/api/job-board-api");
+    url.searchParams.set("page", String(page));
+    const response = await fetch(url, {
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "JobConnect India/1.0",
+      },
+      signal: AbortSignal.timeout(12_000),
+    });
+    if (!response.ok) {
+      throw new Error(`Arbeitnow page ${page} failed with ${response.status}`);
+    }
+
+    const data = (await response.json()) as ArbeitnowResponse;
+    results.push(
+      ...(data.data ?? [])
+        .map(normalizeArbeitnowOpportunity)
+        .filter(Boolean) as Opportunity[],
+    );
+    if (!data.links?.next) break;
+  }
+
+  return results;
+}
+
 function dedupeOpportunities(items: Opportunity[]) {
   const seen = new Set<string>();
   return items.filter((item) => {
@@ -629,6 +986,7 @@ async function saveSyncRun(status: string, fetchedCount: number, insertedCount: 
 }
 
 async function collectLiveIndiaOpportunities() {
+  const employerBoards = getConfiguredEmployerBoards();
   const remotiveQueries = [
     "india",
     "internship india",
@@ -658,7 +1016,7 @@ async function collectLiveIndiaOpportunities() {
     return results;
   };
 
-  const museResults = await collect(
+  const musePromise = collect(
     "themuse",
     INDIAN_CITIES.flatMap((location) => [
       fetchTheMusePage(1, location),
@@ -666,12 +1024,12 @@ async function collectLiveIndiaOpportunities() {
     ]),
   );
 
-  const remotiveResults = await collect(
+  const remotivePromise = collect(
     "remotive",
     remotiveQueries.map((query) => fetchRemotiveIndia(query)),
   );
 
-  const jobicyResults = await collect(
+  const jobicyPromise = collect(
     "jobicy",
     JOBICY_KEYWORDS.map((keyword) => fetchJobicyFeed(keyword)),
   );
@@ -688,30 +1046,81 @@ async function collectLiveIndiaOpportunities() {
     "finance",
     "marketing",
   ];
-  const adzunaResults =
+  const adzunaPromise =
     hasRealConfigValue(process.env.ADZUNA_APP_ID) &&
     hasRealConfigValue(process.env.ADZUNA_APP_KEY)
-      ? await collect(
+      ? collect(
           "adzuna",
           adzunaQueries.flatMap((query) => [
             fetchAdzunaPage(1, query),
             fetchAdzunaPage(2, query),
           ]),
         )
-      : [];
+      : Promise.resolve([] as Opportunity[]);
+
+  const greenhousePromise = employerBoards.greenhouse.length
+    ? collect(
+        "greenhouse",
+        employerBoards.greenhouse.map(fetchGreenhouseBoard),
+      )
+    : Promise.resolve([] as Opportunity[]);
+
+  const leverPromise = employerBoards.lever.length
+    ? collect("lever", employerBoards.lever.map(fetchLeverSite))
+    : Promise.resolve([] as Opportunity[]);
+
+  const ashbyPromise = employerBoards.ashby.length
+    ? collect("ashby", employerBoards.ashby.map(fetchAshbyBoard))
+    : Promise.resolve([] as Opportunity[]);
+
+  const arbeitnowPromise = collect("arbeitnow", [fetchArbeitnowPages()]);
+
+  const [
+    museResults,
+    remotiveResults,
+    jobicyResults,
+    adzunaResults,
+    greenhouseResults,
+    leverResults,
+    ashbyResults,
+    arbeitnowResults,
+  ] = await Promise.all([
+    musePromise,
+    remotivePromise,
+    jobicyPromise,
+    adzunaPromise,
+    greenhousePromise,
+    leverPromise,
+    ashbyPromise,
+    arbeitnowPromise,
+  ]);
 
   report.counts.adzuna ??= 0;
+  report.counts.greenhouse ??= 0;
+  report.counts.lever ??= 0;
+  report.counts.ashby ??= 0;
   const opportunities = dedupeOpportunities([
     ...museResults,
     ...remotiveResults,
     ...jobicyResults,
     ...adzunaResults,
+    ...greenhouseResults,
+    ...leverResults,
+    ...ashbyResults,
+    ...arbeitnowResults,
   ]);
 
   return {
     opportunities,
     fetchedCount:
-      museResults.length + remotiveResults.length + jobicyResults.length + adzunaResults.length,
+      museResults.length +
+      remotiveResults.length +
+      jobicyResults.length +
+      adzunaResults.length +
+      greenhouseResults.length +
+      leverResults.length +
+      ashbyResults.length +
+      arbeitnowResults.length,
     report,
   };
 }
@@ -813,7 +1222,24 @@ export async function syncIndiaOpportunities() {
           });
       }
 
-      for (const source of ["themuse", "remotive", "jobicy", "adzuna"] as const) {
+      for (const source of [
+        "themuse",
+        "remotive",
+        "jobicy",
+        "adzuna",
+        "greenhouse",
+        "lever",
+        "ashby",
+        "arbeitnow",
+      ] as const) {
+        const configuredBoards = getConfiguredEmployerBoards();
+        if (
+          (source === "greenhouse" && !configuredBoards.greenhouse.length) ||
+          (source === "lever" && !configuredBoards.lever.length) ||
+          (source === "ashby" && !configuredBoards.ashby.length)
+        ) {
+          continue;
+        }
         if (report.errors[source]?.length) continue;
         const opportunityIds = opportunities
           .filter((item) => item.source === source)

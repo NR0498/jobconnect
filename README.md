@@ -6,7 +6,8 @@ JobConnect is a full-stack India-focused opportunities platform for internships,
 
 - India-first job discovery across internships, full-time roles, startup jobs, and research opportunities
 - User registration and login with database-backed sessions
-- Live multi-source aggregation from The Muse, Remotive, and Jobicy
+- Live multi-source aggregation from The Muse, Remotive, Jobicy, Adzuna,
+  Greenhouse, Lever, Ashby, and Arbeitnow
 - Automated syncing and persistence of opportunities into PostgreSQL
 - Startup dashboard with startup scoring and segmented opportunity views
 - Filters for search, location, track, and startup-only roles
@@ -40,6 +41,10 @@ JobConnect is a full-stack India-focused opportunities platform for internships,
 - Remotive public jobs API
 - Jobicy RSS feed
 - Optional Adzuna integration
+- Greenhouse public employer job boards
+- Lever public employer postings
+- Ashby public employer job boards
+- Arbeitnow public job-board API
 
 ## Project Structure
 
@@ -76,6 +81,12 @@ THE_MUSE_API_KEY=
 ADZUNA_APP_ID=
 ADZUNA_APP_KEY=
 
+# Optional employer boards. Separate entries with commas.
+# Format: board-token|Display Name
+GREENHOUSE_BOARDS=company-token|Company Name
+LEVER_SITES=company-site|Company Name
+ASHBY_BOARDS=company-board|Company Name
+
 # Optional Ollama integration
 OLLAMA_BASE_URL=http://127.0.0.1:11434
 OLLAMA_MODEL=llama3.1
@@ -87,6 +98,9 @@ Notes:
 - `CRON_SECRET` protects the sync endpoint.
 - `THE_MUSE_API_KEY` is optional.
 - `ADZUNA_APP_ID` and `ADZUNA_APP_KEY` are optional.
+- `GREENHOUSE_BOARDS`, `LEVER_SITES`, and `ASHBY_BOARDS` are optional
+  comma-separated employer-board lists.
+- Arbeitnow requires no API key or configuration.
 
 ## Local Development
 
@@ -151,7 +165,7 @@ Endpoints:
 
 The sync layer:
 
-- fetches data from The Muse, Remotive, and Jobicy
+- fetches data from the configured general job APIs and employer ATS boards
 - normalizes jobs into a shared schema
 - deduplicates repeated listings
 - upserts active listings into Postgres
@@ -188,6 +202,33 @@ Endpoints:
 - Optional
 - Docs: https://developer.adzuna.com/overview
 
+### Greenhouse
+
+- No API key is required for published jobs.
+- Add each employer's board token to `GREENHOUSE_BOARDS`.
+- Example format: `company-token|Company Name,second-token|Second Company`
+- Docs: https://developers.greenhouse.io/job-board.html
+
+### Lever
+
+- No API key is required for published jobs.
+- Add each employer's Lever site name to `LEVER_SITES`.
+- The site name is the value after `jobs.lever.co/` in its careers URL.
+- Docs: https://github.com/lever/postings-api
+
+### Ashby
+
+- No API key is required for public job-board postings.
+- Add each employer's Ashby board name to `ASHBY_BOARDS`.
+- The board name is the value after `jobs.ashbyhq.com/` in its careers URL.
+- Docs: https://developers.ashbyhq.com/docs/public-job-posting-api
+
+### Arbeitnow
+
+- No API key or configuration is required.
+- India-relevant listings are retained; unrelated listings are discarded.
+- Docs: https://www.arbeitnow.com/blog/job-board-api
+
 ## Deployment on Vercel
 
 The repository is already prepared for Vercel with:
@@ -206,6 +247,9 @@ The repository is already prepared for Vercel with:
    - `THE_MUSE_API_KEY` optional
    - `ADZUNA_APP_ID` optional
    - `ADZUNA_APP_KEY` optional
+   - `GREENHOUSE_BOARDS` optional
+   - `LEVER_SITES` optional
+   - `ASHBY_BOARDS` optional
    - `OLLAMA_BASE_URL` optional
    - `OLLAMA_MODEL` optional
 4. Deploy
